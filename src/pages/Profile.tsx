@@ -1,20 +1,23 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
-import { Pencil, Save, User } from "lucide-react";
+import { Pencil, Save, User, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCandidateImageUpload } from "@/hooks/useSupabase";
 
 const Profile = () => {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const { uploadMutation, uploading } = useCandidateImageUpload();
 
-  // Mock user data
+  // Mock user data - in a real app, this would come from Supabase auth
   const [userData, setUserData] = useState({
+    id: "mock-user-id", // This would be the actual user ID from auth
     name: "John Doe",
     email: "john.doe@example.com",
     role: "Hiring Manager",
@@ -30,6 +33,25 @@ const Profile = () => {
       title: "Profile updated",
       description: "Your profile has been successfully updated."
     });
+    // In a real app, this would save to Supabase
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) {
+      return;
+    }
+
+    const file = e.target.files[0];
+    if (file) {
+      uploadMutation.mutate({ 
+        file, 
+        candidateId: userData.id 
+      }, {
+        onSuccess: (imageUrl) => {
+          setUserData({ ...userData, imageUrl });
+        }
+      });
+    }
   };
 
   return (
@@ -70,9 +92,28 @@ const Profile = () => {
               </AvatarFallback>
             </Avatar>
             {isEditing && (
-              <Button variant="outline" className="mt-2">
-                Change Photo
-              </Button>
+              <div className="space-y-2 w-full">
+                <Input
+                  id="picture"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => document.getElementById('picture')?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? "Uploading..." : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Photo
+                    </>
+                  )}
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
