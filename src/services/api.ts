@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { Job, Candidate, Interview, Feedback, InterviewStage, StageConfig } from '@/types';
+import { Job, Candidate, Interview, Feedback, InterviewStage, StageConfig, JobStatus } from '@/types';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
 import { Database } from '@/integrations/supabase/types';
 
@@ -27,7 +27,7 @@ export const fetchJobs = async (): Promise<Job[]> => {
     department: job.department,
     location: job.location,
     type: job.type,
-    status: job.status,
+    status: job.status as JobStatus, // Explicitly cast to JobStatus
     applicants: job.applicants || 0,
     datePosted: job.date_posted
   }));
@@ -49,7 +49,7 @@ export const fetchJobById = async (id: string): Promise<Job> => {
     department: data.department,
     location: data.location,
     type: data.type,
-    status: data.status,
+    status: data.status as JobStatus, // Explicitly cast to JobStatus
     applicants: data.applicants || 0,
     datePosted: data.date_posted
   };
