@@ -28,17 +28,23 @@ import { Badge } from "@/components/ui/badge";
 import { mockJobs } from "@/data/mockData";
 import { Job, JobStatus } from "@/types";
 import { Search, ChevronDown, Plus, MoreHorizontal, Briefcase } from "lucide-react";
+import { JobForm } from "@/components/jobs/JobForm";
+import { useToast } from "@/hooks/use-toast";
 
 const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
+  const [jobs, setJobs] = useState<Job[]>(mockJobs);
+  const [isJobFormOpen, setIsJobFormOpen] = useState(false);
+  const [editingJob, setEditingJob] = useState<Job | null>(null);
+  const { toast } = useToast();
 
   // Get unique departments for filter
-  const departments = Array.from(new Set(mockJobs.map(job => job.department)));
+  const departments = Array.from(new Set(jobs.map(job => job.department)));
 
   // Filter jobs based on search and filters
-  const filteredJobs = mockJobs.filter(job => {
+  const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           job.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           job.location.toLowerCase().includes(searchTerm.toLowerCase());
@@ -58,11 +64,67 @@ const Jobs = () => {
     }
   };
 
+  const handleAddJob = (data: any) => {
+    const newJob: Job = {
+      id: `job-${Date.now()}`,
+      title: data.title,
+      department: data.department,
+      location: data.location,
+      type: data.type,
+      status: data.status,
+      applicants: 0,
+      datePosted: new Date().toISOString(),
+    };
+    
+    setJobs([newJob, ...jobs]);
+  };
+
+  const handleEditJob = (data: any) => {
+    if (!editingJob) return;
+    
+    const updatedJobs = jobs.map(job => 
+      job.id === editingJob.id 
+        ? { ...job, ...data } 
+        : job
+    );
+    
+    setJobs(updatedJobs);
+    setEditingJob(null);
+  };
+
+  const openEditJobForm = (job: Job) => {
+    setEditingJob(job);
+    setIsJobFormOpen(true);
+  };
+
+  const handleJobFormSubmit = (data: any) => {
+    if (editingJob) {
+      handleEditJob(data);
+    } else {
+      handleAddJob(data);
+    }
+  };
+
+  const handleDeleteJob = (jobId: string) => {
+    const updatedJobs = jobs.filter(job => job.id !== jobId);
+    setJobs(updatedJobs);
+    toast({
+      title: "Job deleted",
+      description: "The job has been successfully deleted.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Jobs</h1>
-        <Button className="flex items-center">
+        <Button 
+          className="flex items-center"
+          onClick={() => {
+            setEditingJob(null);
+            setIsJobFormOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add New Job
         </Button>
@@ -167,9 +229,10 @@ const Jobs = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditJobForm(job)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem>View Applications</DropdownMenuItem>
                             <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteJob(job.id)}>Delete</DropdownMenuItem>
                             <DropdownMenuItem>
                               {job.status === "active" ? "Pause" : job.status === "paused" ? "Reactivate" : "Reopen"}
                             </DropdownMenuItem>
@@ -194,6 +257,14 @@ const Jobs = () => {
           </div>
         </CardContent>
       </Card>
+
+      <JobForm
+        open={isJobFormOpen}
+        onOpenChange={setIsJobFormOpen}
+        onSubmit={handleJobFormSubmit}
+        defaultValues={editingJob || undefined}
+        isEditing={!!editingJob}
+      />
     </div>
   );
 };

@@ -28,18 +28,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { mockCandidates, stageConfig } from "@/data/mockData";
 import { Candidate, InterviewStage } from "@/types";
-import { Search, ChevronDown, Plus, MoreHorizontal, User } from "lucide-react";
+import { Search, Plus, MoreHorizontal, User } from "lucide-react";
+import { CandidateForm } from "@/components/candidates/CandidateForm";
+import { useToast } from "@/hooks/use-toast";
 
 const Candidates = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<InterviewStage | "all">("all");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [candidates, setCandidates] = useState<Candidate[]>(mockCandidates);
+  const [isCandidateFormOpen, setIsCandidateFormOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(null);
+  const { toast } = useToast();
 
   // Get unique roles for filter
-  const roles = Array.from(new Set(mockCandidates.map(candidate => candidate.role)));
+  const roles = Array.from(new Set(candidates.map(candidate => candidate.role)));
 
   // Filter candidates based on search and filters
-  const filteredCandidates = mockCandidates.filter(candidate => {
+  const filteredCandidates = candidates.filter(candidate => {
     const matchesSearch = candidate.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           candidate.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           candidate.role.toLowerCase().includes(searchTerm.toLowerCase());
@@ -68,11 +74,67 @@ const Candidates = () => {
       .toUpperCase();
   };
 
+  const handleAddCandidate = (data: any) => {
+    const newCandidate: Candidate = {
+      id: `candidate-${Date.now()}`,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      currentStage: data.currentStage,
+      appliedDate: new Date().toISOString(),
+      tags: data.tags,
+    };
+    
+    setCandidates([newCandidate, ...candidates]);
+  };
+
+  const handleEditCandidate = (data: any) => {
+    if (!editingCandidate) return;
+    
+    const updatedCandidates = candidates.map(candidate => 
+      candidate.id === editingCandidate.id 
+        ? { ...candidate, ...data } 
+        : candidate
+    );
+    
+    setCandidates(updatedCandidates);
+    setEditingCandidate(null);
+  };
+
+  const openEditCandidateForm = (candidate: Candidate) => {
+    setEditingCandidate(candidate);
+    setIsCandidateFormOpen(true);
+  };
+
+  const handleCandidateFormSubmit = (data: any) => {
+    if (editingCandidate) {
+      handleEditCandidate(data);
+    } else {
+      handleAddCandidate(data);
+    }
+  };
+
+  const handleDeleteCandidate = (candidateId: string) => {
+    const updatedCandidates = candidates.filter(candidate => candidate.id !== candidateId);
+    setCandidates(updatedCandidates);
+    toast({
+      title: "Candidate deleted",
+      description: "The candidate has been successfully removed.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Candidates</h1>
-        <Button className="flex items-center">
+        <Button 
+          className="flex items-center"
+          onClick={() => {
+            setEditingCandidate(null);
+            setIsCandidateFormOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Candidate
         </Button>
@@ -192,10 +254,11 @@ const Candidates = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Profile</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEditCandidateForm(candidate)}>Edit Profile</DropdownMenuItem>
                               <DropdownMenuItem>Schedule Interview</DropdownMenuItem>
                               <DropdownMenuItem>Add Feedback</DropdownMenuItem>
                               <DropdownMenuItem>Change Stage</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteCandidate(candidate.id)}>Delete</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -218,6 +281,14 @@ const Candidates = () => {
           </div>
         </CardContent>
       </Card>
+
+      <CandidateForm
+        open={isCandidateFormOpen}
+        onOpenChange={setIsCandidateFormOpen}
+        onSubmit={handleCandidateFormSubmit}
+        defaultValues={editingCandidate || undefined}
+        isEditing={!!editingCandidate}
+      />
     </div>
   );
 };

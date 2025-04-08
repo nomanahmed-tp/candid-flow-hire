@@ -24,17 +24,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockInterviews, stageConfig } from "@/data/mockData";
+import { mockInterviews, stageConfig, mockCandidates, mockJobs } from "@/data/mockData";
 import { Interview, InterviewStage } from "@/types";
-import { Search, Plus, MoreHorizontal, Calendar } from "lucide-react";
+import { Search, Plus, MoreHorizontal, Calendar, X } from "lucide-react";
+import { InterviewForm } from "@/components/interviews/InterviewForm";
+import { useToast } from "@/hooks/use-toast";
 
 const Interviews = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<InterviewStage | "all">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "scheduled" | "completed" | "cancelled">("all");
+  const [interviews, setInterviews] = useState<Interview[]>(mockInterviews);
+  const [isInterviewFormOpen, setIsInterviewFormOpen] = useState(false);
+  const [editingInterview, setEditingInterview] = useState<Interview | null>(null);
+  const { toast } = useToast();
 
   // Filter interviews based on search and filters
-  const filteredInterviews = mockInterviews.filter(interview => {
+  const filteredInterviews = interviews.filter(interview => {
     const matchesSearch = interview.candidateName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           interview.jobTitle.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -77,11 +83,140 @@ const Interviews = () => {
     }
   };
 
+  const handleAddInterview = (data: any) => {
+    const candidate = mockCandidates.find(c => c.id === data.candidateId);
+    const job = mockJobs.find(j => j.id === data.jobId);
+    
+    if (!candidate || !job) {
+      toast({
+        title: "Error",
+        description: "Could not find candidate or job",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Combine date and time
+    const scheduledDateTime = new Date(data.scheduledDate);
+    const [hours, minutes] = data.scheduledTime.split(':').map(Number);
+    scheduledDateTime.setHours(hours, minutes);
+    
+    const newInterview: Interview = {
+      id: `interview-${Date.now()}`,
+      candidateId: data.candidateId,
+      candidateName: candidate.name,
+      jobId: data.jobId,
+      jobTitle: job.title,
+      interviewers: data.interviewers,
+      stage: data.stage,
+      scheduledDate: scheduledDateTime.toISOString(),
+      duration: data.duration,
+      status: data.status,
+      notes: data.notes,
+    };
+    
+    setInterviews([newInterview, ...interviews]);
+  };
+
+  const handleEditInterview = (data: any) => {
+    if (!editingInterview) return;
+    
+    const candidate = mockCandidates.find(c => c.id === data.candidateId);
+    const job = mockJobs.find(j => j.id === data.jobId);
+    
+    if (!candidate || !job) {
+      toast({
+        title: "Error",
+        description: "Could not find candidate or job",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Combine date and time
+    const scheduledDateTime = new Date(data.scheduledDate);
+    const [hours, minutes] = data.scheduledTime.split(':').map(Number);
+    scheduledDateTime.setHours(hours, minutes);
+    
+    const updatedInterviews = interviews.map(interview => 
+      interview.id === editingInterview.id 
+        ? { 
+            ...interview, 
+            candidateId: data.candidateId,
+            candidateName: candidate.name,
+            jobId: data.jobId,
+            jobTitle: job.title,
+            interviewers: data.interviewers,
+            stage: data.stage,
+            scheduledDate: scheduledDateTime.toISOString(),
+            duration: data.duration,
+            status: data.status,
+            notes: data.notes,
+          } 
+        : interview
+    );
+    
+    setInterviews(updatedInterviews);
+    setEditingInterview(null);
+  };
+
+  const openEditInterviewForm = (interview: Interview) => {
+    // Convert ISO date to separate date and time
+    const scheduledDate = new Date(interview.scheduledDate);
+    const scheduledTime = scheduledDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    setEditingInterview({
+      ...interview,
+    });
+    setIsInterviewFormOpen(true);
+  };
+
+  const handleInterviewFormSubmit = (data: any) => {
+    if (editingInterview) {
+      handleEditInterview(data);
+    } else {
+      handleAddInterview(data);
+    }
+  };
+
+  const handleDeleteInterview = (interviewId: string) => {
+    const updatedInterviews = interviews.filter(interview => interview.id !== interviewId);
+    setInterviews(updatedInterviews);
+    toast({
+      title: "Interview cancelled",
+      description: "The interview has been successfully cancelled and removed.",
+    });
+  };
+
+  const handleCancelInterview = (interviewId: string) => {
+    const updatedInterviews = interviews.map(interview => 
+      interview.id === interviewId 
+        ? { ...interview, status: "cancelled" } 
+        : interview
+    );
+    
+    setInterviews(updatedInterviews);
+    toast({
+      title: "Interview cancelled",
+      description: "The interview has been marked as cancelled.",
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Interviews</h1>
-        <Button className="flex items-center">
+        <Button 
+          className="flex items-center"
+          onClick={() => {
+            setEditingInterview(null);
+            setIsInterviewFormOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Schedule Interview
         </Button>
@@ -185,10 +320,16 @@ const Interviews = () => {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEditInterviewForm(interview)}>Edit Details</DropdownMenuItem>
                               <DropdownMenuItem>Add Feedback</DropdownMenuItem>
-                              <DropdownMenuItem>Reschedule</DropdownMenuItem>
-                              <DropdownMenuItem>Cancel</DropdownMenuItem>
+                              {interview.status === "scheduled" && (
+                                <DropdownMenuItem onClick={() => handleCancelInterview(interview.id)}>
+                                  Cancel Interview
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem onClick={() => handleDeleteInterview(interview.id)}>
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -211,6 +352,22 @@ const Interviews = () => {
           </div>
         </CardContent>
       </Card>
+
+      <InterviewForm
+        open={isInterviewFormOpen}
+        onOpenChange={setIsInterviewFormOpen}
+        onSubmit={handleInterviewFormSubmit}
+        defaultValues={editingInterview ? {
+          ...editingInterview,
+          scheduledDate: new Date(editingInterview.scheduledDate),
+          scheduledTime: new Date(editingInterview.scheduledDate).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          }),
+        } : undefined}
+        isEditing={!!editingInterview}
+      />
     </div>
   );
 };

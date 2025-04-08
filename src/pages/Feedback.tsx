@@ -18,24 +18,32 @@ import {
 } from "@/components/ui/select";
 import { mockFeedback, mockCandidates, stageConfig } from "@/data/mockData";
 import { Feedback as FeedbackType, InterviewStage } from "@/types";
-import { Search, Plus, MoreHorizontal, FileText } from "lucide-react";
+import { Search, Plus, MoreHorizontal, FileText, Eye } from "lucide-react";
+import { FeedbackForm } from "@/components/feedback/FeedbackForm";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const Feedback = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [stageFilter, setStageFilter] = useState<InterviewStage | "all">("all");
   const [ratingFilter, setRatingFilter] = useState<string>("all");
+  const [feedback, setFeedback] = useState<FeedbackType[]>(mockFeedback);
+  const [isFeedbackFormOpen, setIsFeedbackFormOpen] = useState(false);
+  const [editingFeedback, setEditingFeedback] = useState<FeedbackType | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Filter feedback based on search and filters
-  const filteredFeedback = mockFeedback.filter(feedback => {
-    const candidate = mockCandidates.find(c => c.id === feedback.candidateId);
+  const filteredFeedback = feedback.filter(feedbackItem => {
+    const candidate = mockCandidates.find(c => c.id === feedbackItem.candidateId);
     
     const matchesSearch = (
       (candidate?.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      feedback.interviewerName.toLowerCase().includes(searchTerm.toLowerCase())
+      feedbackItem.interviewerName.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
-    const matchesStage = stageFilter === "all" || feedback.stage === stageFilter;
-    const matchesRating = ratingFilter === "all" || feedback.rating === parseInt(ratingFilter);
+    const matchesStage = stageFilter === "all" || feedbackItem.stage === stageFilter;
+    const matchesRating = ratingFilter === "all" || feedbackItem.rating === parseInt(ratingFilter);
     
     return matchesSearch && matchesStage && matchesRating;
   });
@@ -72,11 +80,82 @@ const Feedback = () => {
     );
   };
 
+  const handleAddFeedback = (data: any) => {
+    const newFeedback: FeedbackType = {
+      id: `feedback-${Date.now()}`,
+      candidateId: data.candidateId,
+      interviewerId: "user-1", // Placeholder user ID
+      interviewerName: data.interviewerName,
+      stage: data.stage,
+      rating: data.rating,
+      notes: data.notes,
+      date: new Date().toISOString(),
+    };
+    
+    setFeedback([newFeedback, ...feedback]);
+  };
+
+  const handleEditFeedback = (data: any) => {
+    if (!editingFeedback) return;
+    
+    const updatedFeedback = feedback.map(item => 
+      item.id === editingFeedback.id 
+        ? { 
+            ...item, 
+            candidateId: data.candidateId,
+            interviewerName: data.interviewerName,
+            stage: data.stage,
+            rating: data.rating,
+            notes: data.notes,
+          } 
+        : item
+    );
+    
+    setFeedback(updatedFeedback);
+    setEditingFeedback(null);
+  };
+
+  const openEditFeedbackForm = (feedbackItem: FeedbackType) => {
+    setEditingFeedback(feedbackItem);
+    setIsFeedbackFormOpen(true);
+  };
+
+  const handleFeedbackFormSubmit = (data: any) => {
+    if (editingFeedback) {
+      handleEditFeedback(data);
+    } else {
+      handleAddFeedback(data);
+    }
+  };
+
+  const handleDeleteFeedback = (feedbackId: string) => {
+    const updatedFeedback = feedback.filter(item => item.id !== feedbackId);
+    setFeedback(updatedFeedback);
+    toast({
+      title: "Feedback deleted",
+      description: "The feedback has been successfully deleted.",
+    });
+  };
+
+  const viewCandidate = (candidateId: string) => {
+    // In a real application, this would navigate to the candidate's profile
+    toast({
+      title: "Viewing candidate",
+      description: `Navigating to candidate profile: ${getCandidateName(candidateId)}`,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Feedback</h1>
-        <Button className="flex items-center">
+        <Button 
+          className="flex items-center"
+          onClick={() => {
+            setEditingFeedback(null);
+            setIsFeedbackFormOpen(true);
+          }}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Add Feedback
         </Button>
@@ -138,17 +217,17 @@ const Feedback = () => {
 
           <div className="space-y-4">
             {filteredFeedback.length > 0 ? (
-              filteredFeedback.map((feedback) => (
-                <Card key={feedback.id} className="overflow-hidden">
+              filteredFeedback.map((feedbackItem) => (
+                <Card key={feedbackItem.id} className="overflow-hidden">
                   <div className="border-l-4 border-primary h-full">
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <div>
                           <CardTitle className="text-lg">
-                            {getCandidateName(feedback.candidateId)}
+                            {getCandidateName(feedbackItem.candidateId)}
                           </CardTitle>
                           <CardDescription>
-                            {getStageLabel(feedback.stage)} • {new Date(feedback.date).toLocaleDateString()}
+                            {getStageLabel(feedbackItem.stage)} • {new Date(feedbackItem.date).toLocaleDateString()}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
@@ -159,10 +238,16 @@ const Feedback = () => {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Edit Feedback</DropdownMenuItem>
-                            <DropdownMenuItem>View Candidate</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditFeedbackForm(feedbackItem)}>
+                              Edit Feedback
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => viewCandidate(feedbackItem.candidateId)}>
+                              View Candidate
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Print</DropdownMenuItem>
-                            <DropdownMenuItem>Delete</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteFeedback(feedbackItem.id)}>
+                              Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -171,14 +256,14 @@ const Feedback = () => {
                       <div className="space-y-4">
                         <div className="flex justify-between">
                           <span className="text-sm text-muted-foreground">
-                            Interviewer: <span className="text-foreground">{feedback.interviewerName}</span>
+                            Interviewer: <span className="text-foreground">{feedbackItem.interviewerName}</span>
                           </span>
                           <div className="flex items-center">
-                            {renderStarRating(feedback.rating)}
+                            {renderStarRating(feedbackItem.rating)}
                           </div>
                         </div>
                         <div className="text-sm bg-muted/30 p-3 rounded-md">
-                          {feedback.notes}
+                          {feedbackItem.notes}
                         </div>
                       </div>
                     </CardContent>
@@ -195,6 +280,14 @@ const Feedback = () => {
           </div>
         </CardContent>
       </Card>
+
+      <FeedbackForm
+        open={isFeedbackFormOpen}
+        onOpenChange={setIsFeedbackFormOpen}
+        onSubmit={handleFeedbackFormSubmit}
+        defaultValues={editingFeedback || undefined}
+        isEditing={!!editingFeedback}
+      />
     </div>
   );
 };
