@@ -1,6 +1,15 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Job, Candidate, Interview, Feedback, InterviewStage, StageConfig } from '@/types';
+import { PostgrestSingleResponse } from '@supabase/supabase-js';
+import { Database } from '@/integrations/supabase/types';
+
+// Type assertion helper
+const assertData = <T>(response: PostgrestSingleResponse<T>): T => {
+  if (response.error) throw response.error;
+  if (response.data === null) throw new Error('No data returned from query');
+  return response.data;
+};
 
 // Jobs API
 export const fetchJobs = async (): Promise<Job[]> => {
@@ -10,6 +19,7 @@ export const fetchJobs = async (): Promise<Job[]> => {
     .order('date_posted', { ascending: false });
   
   if (error) throw error;
+  if (!data) return [];
   
   return data.map(job => ({
     id: job.id,
@@ -31,6 +41,7 @@ export const fetchJobById = async (id: string): Promise<Job> => {
     .single();
   
   if (error) throw error;
+  if (!data) throw new Error(`Job with ID ${id} not found`);
   
   return {
     id: data.id,
@@ -52,6 +63,7 @@ export const fetchCandidates = async (): Promise<Candidate[]> => {
     .order('applied_date', { ascending: false });
   
   if (error) throw error;
+  if (!data) return [];
   
   return data.map(candidate => ({
     id: candidate.id,
@@ -74,6 +86,7 @@ export const fetchCandidateById = async (id: string): Promise<Candidate> => {
     .single();
   
   if (error) throw error;
+  if (!data) throw new Error(`Candidate with ID ${id} not found`);
   
   return {
     id: data.id,
@@ -96,6 +109,7 @@ export const fetchInterviews = async (): Promise<Interview[]> => {
     .order('scheduled_date', { ascending: true });
   
   if (error) throw error;
+  if (!data) return [];
   
   return data.map(interview => ({
     id: interview.id,
@@ -120,6 +134,7 @@ export const fetchFeedback = async (): Promise<Feedback[]> => {
     .order('date', { ascending: false });
   
   if (error) throw error;
+  if (!data) return [];
   
   return data.map(feedback => ({
     id: feedback.id,
@@ -141,6 +156,7 @@ export const fetchStageConfig = async (): Promise<StageConfig[]> => {
     .order('sort_order', { ascending: true });
   
   if (error) throw error;
+  if (!data) return [];
   
   return data.map(stage => ({
     id: stage.id as InterviewStage,
@@ -158,6 +174,7 @@ export const fetchDashboardStats = async () => {
     .single();
   
   if (error) throw error;
+  if (!data) throw new Error('Stats not found');
   
   return {
     totalJobs: data.total_jobs,
