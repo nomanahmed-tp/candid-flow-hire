@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,7 +110,7 @@ const Interviews = () => {
       stage: data.stage,
       scheduledDate: scheduledDateTime.toISOString(),
       duration: data.duration,
-      status: data.status,
+      status: data.status as "scheduled" | "completed" | "cancelled",
       notes: data.notes,
     };
     
@@ -150,7 +149,7 @@ const Interviews = () => {
             stage: data.stage,
             scheduledDate: scheduledDateTime.toISOString(),
             duration: data.duration,
-            status: data.status,
+            status: data.status as "scheduled" | "completed" | "cancelled",
             notes: data.notes,
           } 
         : interview
@@ -195,7 +194,7 @@ const Interviews = () => {
   const handleCancelInterview = (interviewId: string) => {
     const updatedInterviews = interviews.map(interview => 
       interview.id === interviewId 
-        ? { ...interview, status: "cancelled" } 
+        ? { ...interview, status: "cancelled" as const } 
         : interview
     );
     
