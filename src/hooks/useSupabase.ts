@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import { toast } from '@/hooks/use-toast';
-import * as api from '@/services/api';
+import * as api from '@/services';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Job, Candidate, Interview, Feedback, StageConfig } from '@/types';
 
