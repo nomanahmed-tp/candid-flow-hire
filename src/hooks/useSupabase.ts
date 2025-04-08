@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import * as api from '@/services/api';
@@ -18,6 +17,76 @@ export const useJob = (id: string) => {
     queryKey: ['jobs', id],
     queryFn: () => api.fetchJobById(id),
     enabled: !!id
+  });
+};
+
+export const useCreateJob = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: api.createJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job created successfully"
+      });
+    },
+    onError: (error) => {
+      console.error('Create job error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create job. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+};
+
+export const useUpdateJob = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: ({ id, jobData }: { id: string; jobData: Partial<Omit<Job, 'id' | 'datePosted' | 'applicants'>> }) => 
+      api.updateJob(id, jobData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job updated successfully"
+      });
+    },
+    onError: (error) => {
+      console.error('Update job error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update job. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+};
+
+export const useDeleteJob = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: api.deleteJob,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['jobs'] });
+      toast({
+        title: "Success",
+        description: "Job deleted successfully"
+      });
+    },
+    onError: (error) => {
+      console.error('Delete job error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete job. Please try again.",
+        variant: "destructive"
+      });
+    }
   });
 };
 

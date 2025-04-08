@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Job, Candidate, Interview, Feedback, InterviewStage, StageConfig, JobStatus } from '@/types';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
@@ -53,6 +52,76 @@ export const fetchJobById = async (id: string): Promise<Job> => {
     applicants: data.applicants || 0,
     datePosted: data.date_posted
   };
+};
+
+// Add this new function to create a job in Supabase
+export const createJob = async (jobData: Omit<Job, 'id' | 'datePosted' | 'applicants'>): Promise<Job> => {
+  const { error, data } = await supabase
+    .from('jobs')
+    .insert({
+      title: jobData.title,
+      department: jobData.department,
+      location: jobData.location,
+      type: jobData.type,
+      status: jobData.status,
+      // Supabase will automatically set date_posted with the default value
+    })
+    .select()
+    .single();
+  
+  if (error) throw error;
+  if (!data) throw new Error('Failed to create job');
+  
+  return {
+    id: data.id,
+    title: data.title,
+    department: data.department,
+    location: data.location,
+    type: data.type,
+    status: data.status as JobStatus,
+    applicants: data.applicants || 0,
+    datePosted: data.date_posted
+  };
+};
+
+// Add this new function to update a job in Supabase
+export const updateJob = async (id: string, jobData: Partial<Omit<Job, 'id' | 'datePosted' | 'applicants'>>): Promise<Job> => {
+  const { error, data } = await supabase
+    .from('jobs')
+    .update({
+      title: jobData.title,
+      department: jobData.department,
+      location: jobData.location,
+      type: jobData.type,
+      status: jobData.status,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  
+  if (error) throw error;
+  if (!data) throw new Error(`Failed to update job with ID ${id}`);
+  
+  return {
+    id: data.id,
+    title: data.title,
+    department: data.department,
+    location: data.location,
+    type: data.type,
+    status: data.status as JobStatus,
+    applicants: data.applicants || 0,
+    datePosted: data.date_posted
+  };
+};
+
+// Add this new function to delete a job in Supabase
+export const deleteJob = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('jobs')
+    .delete()
+    .eq('id', id);
+  
+  if (error) throw error;
 };
 
 // Candidates API

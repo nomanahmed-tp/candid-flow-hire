@@ -25,20 +25,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { mockJobs } from "@/data/mockData";
 import { Job, JobStatus } from "@/types";
-import { Search, ChevronDown, Plus, MoreHorizontal, Briefcase } from "lucide-react";
+import { Search, ChevronDown, Plus, MoreHorizontal, Briefcase, Loader2 } from "lucide-react";
 import { JobForm } from "@/components/jobs/JobForm";
 import { useToast } from "@/hooks/use-toast";
+import { useJobs, useCreateJob, useUpdateJob, useDeleteJob } from "@/hooks/useSupabase";
 
 const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
   const [isJobFormOpen, setIsJobFormOpen] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const { toast } = useToast();
+  
+  // Use the Supabase hooks
+  const { data: jobs = [], isLoading, isError } = useJobs();
+  const createJobMutation = useCreateJob();
+  const updateJobMutation = useUpdateJob();
+  const deleteJobMutation = useDeleteJob();
 
   // Get unique departments for filter
   const departments = Array.from(new Set(jobs.map(job => job.department)));
@@ -65,31 +70,33 @@ const Jobs = () => {
   };
 
   const handleAddJob = (data: any) => {
-    const newJob: Job = {
-      id: `job-${Date.now()}`,
+    createJobMutation.mutate({
       title: data.title,
       department: data.department,
       location: data.location,
       type: data.type,
-      status: data.status,
-      applicants: 0,
-      datePosted: new Date().toISOString(),
-    };
+      status: data.status as JobStatus
+    });
     
-    setJobs([newJob, ...jobs]);
+    setIsJobFormOpen(false);
   };
 
   const handleEditJob = (data: any) => {
     if (!editingJob) return;
     
-    const updatedJobs = jobs.map(job => 
-      job.id === editingJob.id 
-        ? { ...job, ...data } 
-        : job
-    );
+    updateJobMutation.mutate({
+      id: editingJob.id,
+      jobData: {
+        title: data.title,
+        department: data.department,
+        location: data.location,
+        type: data.type,
+        status: data.status as JobStatus
+      }
+    });
     
-    setJobs(updatedJobs);
     setEditingJob(null);
+    setIsJobFormOpen(false);
   };
 
   const openEditJobForm = (job: Job) => {
@@ -106,12 +113,7 @@ const Jobs = () => {
   };
 
   const handleDeleteJob = (jobId: string) => {
-    const updatedJobs = jobs.filter(job => job.id !== jobId);
-    setJobs(updatedJobs);
-    toast({
-      title: "Job deleted",
-      description: "The job has been successfully deleted.",
-    });
+    deleteJobMutation.mutate(jobId);
   };
 
   return (
@@ -124,8 +126,13 @@ const Jobs = () => {
             setEditingJob(null);
             setIsJobFormOpen(true);
           }}
+          disabled={createJobMutation.isPending}
         >
-          <Plus className="mr-2 h-4 w-4" />
+          {createJobMutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Plus className="mr-2 h-4 w-4" />
+          )}
           Add New Job
         </Button>
       </div>
@@ -195,7 +202,25 @@ const Jobs = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredJobs.length > 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      <div className="flex items-center justify-center">
+                        <Loader2 className="h-8 w-8 animate-spin mr-2" />
+                        <p>Loading jobs...</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : isError ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-24 text-center">
+                      <div className="flex flex-col items-center justify-center text-destructive">
+                        <p>Error loading jobs</p>
+                        <p className="text-sm">Please try again later</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredJobs.length > 0 ? (
                   filteredJobs.map((job) => (
                     <TableRow key={job.id}>
                       <TableCell className="font-medium">{job.title}</TableCell>
@@ -232,7 +257,12 @@ const Jobs = () => {
                             <DropdownMenuItem onClick={() => openEditJobForm(job)}>Edit</DropdownMenuItem>
                             <DropdownMenuItem>View Applications</DropdownMenuItem>
                             <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteJob(job.id)}>Delete</DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteJob(job.id)}
+                              disabled={deleteJobMutation.isPending}
+                            >
+                              {deleteJobMutation.isPending ? 'Deleting...' : 'Delete'}
+                            </DropdownMenuItem>
                             <DropdownMenuItem>
                               {job.status === "active" ? "Pause" : job.status === "paused" ? "Reactivate" : "Reopen"}
                             </DropdownMenuItem>
